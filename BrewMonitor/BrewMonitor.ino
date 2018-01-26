@@ -5,6 +5,13 @@
 
 #define DEBUG
 
+#ifdef DEBUG
+  #define PRINT(...) Serial.print(__VA_ARGS__)
+  #define PRINTVAR(v) Serial.print("   "#v": " + String(v) + "\n")
+#else
+  #define PRINT(...)
+#endif
+
 #define ORIENTATION 3
 #define TFT_RST 3
 #define TFT_RS  4
@@ -15,7 +22,7 @@
 
 #define TFT_BRIGHTNESS 200 // Initial brightness of TFT backlight (optional)
 
-#define X_RANGE 1
+#define X_RANGE 12
 #define Y_RANGE 4
 
 #define X_ZERO 5
@@ -79,12 +86,15 @@ class Display {
   }
 
   void advanceBar(unsigned long timestamp) {
-    static const unsigned long chartWidth = X_RANGE*60*60*1000L;
+    static const unsigned long chartWidth = X_RANGE*60L*60L*1000L;
     unsigned newX = (float)((timestamp-startTime) % chartWidth) / chartWidth * (X_RANGE*X_HOUR) + X_ZERO;
 
-    Serial.print("chartWidth: " + String(chartWidth) + " startTime: " + String(startTime) + " timestamp: " + String(timestamp) + "\n");
-    Serial.print("x: " + String(barX) + " new x: " + String(newX) + "\n");
-    
+PRINT("Advance: timestamp: " + String(timestamp) + ", barX: " + String(barX) + ", newX: " + String(newX) + "\n");
+PRINTVAR(startTime);
+PRINTVAR(chartWidth);
+PRINT("   X_RANGE: " + String(X_RANGE) + "\n");
+PRINT("   X_HOUR: " + String(X_HOUR) + "\n");
+
     if (newX != barX) {
       if (barX) {
         tft.drawLine(barX+1, Y_TOP, barX+1, Y_ZERO-1, COLOR_BLACK);
@@ -175,63 +185,66 @@ class Sensors {
 
     float fraction = (float)(res - curve[i-1].resistance) / (float)(curve[i].resistance - curve[i-1].resistance);
         
-    return curve[i-1].temp + fraction * (curve[i].temp - curve[i-1].temp);
+    float temp = curve[i-1].temp + fraction * (curve[i].temp - curve[i-1].temp);
+
+    PRINT("Sensor: " + String(type) + ", in: " + String(in) + ", res: " + String(res) + ", temp: " + String(temp, 1) + "\n");
+
+    return temp;
   }
 };
 
 // Variables and constants
-#define CURVE_SAMPLES 49
-  static const Sensors::CurvePoint Sensors::curve[CURVE_SAMPLES] = { 
-    { 0, 51 },
-    { 3525, 50.56 },
-    { 3679, 49.44 },
-    { 3838, 48.33 },
-    { 4006, 47.22 },
-    { 4182, 46.11 },
-    { 4367, 45 },
-    { 4561, 43.89 },
-    { 4766, 42.78 },
-    { 4981, 41.67 },
-    { 5207, 40.56 },
-    { 5447, 39.44 },
-    { 5697, 38.33 },
-    { 5960, 37.22 },
-    { 6238, 36.11 },
-    { 6530, 35 },
-    { 6838, 33.89 },
-    { 7163, 32.78 },
-    { 7505, 31.67 },
-    { 7866, 30.56 },
-    { 8251, 29.44 },
-    { 8653, 28.33 },
-    { 9078, 27.22 },
-    { 9526, 26.11 },
-    { 10000, 25 },
-    { 10501, 23.89 },
-    { 11030, 22.78 },
-    { 11590, 21.67 },
-    { 12182, 20.56 },
-    { 12814, 19.44 },
-    { 13478, 18.33 },
-    { 14180, 17.22 },
-    { 14925, 16.11 },
-    { 15714, 15 },
-    { 16550, 13.89 },
-    { 17437, 12.78 },
-    { 18378, 11.67 },
-    { 19376, 10.56 },
-    { 20446, 9.44 },
-    { 21573, 8.33 },
-    { 22770, 7.22 },
-    { 24042, 6.11 },
-    { 25395, 5 },
-    { 26834, 3.89 },
-    { 28365, 2.78 },
-    { 29996, 1.67 },
-    { 31732, 0.56 },
-    { 33599, -0.56 },
-    { UINT_MAX, -1 }
-  };
+static const Sensors::CurvePoint Sensors::curve[] = { 
+  { 0, 51 },
+  { 3525, 50.56 },
+  { 3679, 49.44 },
+  { 3838, 48.33 },
+  { 4006, 47.22 },
+  { 4182, 46.11 },
+  { 4367, 45 },
+  { 4561, 43.89 },
+  { 4766, 42.78 },
+  { 4981, 41.67 },
+  { 5207, 40.56 },
+  { 5447, 39.44 },
+  { 5697, 38.33 },
+  { 5960, 37.22 },
+  { 6238, 36.11 },
+  { 6530, 35 },
+  { 6838, 33.89 },
+  { 7163, 32.78 },
+  { 7505, 31.67 },
+  { 7866, 30.56 },
+  { 8251, 29.44 },
+  { 8653, 28.33 },
+  { 9078, 27.22 },
+  { 9526, 26.11 },
+  { 10000, 25 },
+  { 10501, 23.89 },
+  { 11030, 22.78 },
+  { 11590, 21.67 },
+  { 12182, 20.56 },
+  { 12814, 19.44 },
+  { 13478, 18.33 },
+  { 14180, 17.22 },
+  { 14925, 16.11 },
+  { 15714, 15 },
+  { 16550, 13.89 },
+  { 17437, 12.78 },
+  { 18378, 11.67 },
+  { 19376, 10.56 },
+  { 20446, 9.44 },
+  { 21573, 8.33 },
+  { 22770, 7.22 },
+  { 24042, 6.11 },
+  { 25395, 5 },
+  { 26834, 3.89 },
+  { 28365, 2.78 },
+  { 29996, 1.67 },
+  { 31732, 0.56 },
+  { 33599, -0.56 },
+  { UINT_MAX, -1 }
+};
 
 Display lcd;
 Sensors sensors;
