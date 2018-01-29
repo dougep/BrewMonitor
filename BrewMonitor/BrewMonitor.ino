@@ -27,10 +27,11 @@
 
 #define X_ZERO 5
 #define Y_ZERO (height-5-1)
-#define X_HOUR ((width-X_ZERO)/X_RANGE)
+#define X_HOUR ((width-X_ZERO-1)/X_RANGE)
 #define X_HALF (X_HOUR/2)
 #define X_QUARTER (X_HOUR/4)
-#define Y_10DEG ((Y_ZERO+1-40)/Y_RANGE)
+#define X_PIXELS (X_RANGE*X_HOUR)
+#define Y_10DEG ((Y_ZERO+1-44)/Y_RANGE)
 #define Y_5DEG (Y_10DEG/2)
 #define Y_TOP (Y_ZERO-Y_RANGE*Y_10DEG)
 #define Y_BOTTOM (height-1)
@@ -40,8 +41,6 @@ typedef enum {
   coolant = 1,
   air = 2
 } TempType;
-
-const unsigned tempInputs[] = { A0, A1, A2 };
 
 class TextDetails {
   public:
@@ -58,11 +57,17 @@ class TextDetails {
 
 class Display {
   private:
+  static const unsigned long chartWidth = X_RANGE*60L*60L*1000L;
+
+  private:
+  byte *storage[3] = {};
+  float minTemp[3] = {};
+  float maxTemp[3] = {};
   TFT_22_ILI9225 tft = TFT_22_ILI9225(TFT_RST, TFT_RS, TFT_CS, TFT_LED, TFT_BRIGHTNESS);
   TextDetails temps[3] = {
     TextDetails("Beer", 0, COLOR_BLUE),
-    TextDetails("Coolant", 65, COLOR_GREEN),
-    TextDetails("Air", 165, COLOR_RED)
+    TextDetails("Coolant", 68, COLOR_GREEN),
+    TextDetails("Air", 160, COLOR_RED)
   };
 
   unsigned width, height;
@@ -86,14 +91,7 @@ class Display {
   }
 
   void advanceBar(unsigned long timestamp) {
-    static const unsigned long chartWidth = X_RANGE*60L*60L*1000L;
-    unsigned newX = (float)((timestamp-startTime) % chartWidth) / chartWidth * (X_RANGE*X_HOUR) + X_ZERO;
-
-PRINT("Advance: timestamp: " + String(timestamp) + ", barX: " + String(barX) + ", newX: " + String(newX) + "\n");
-PRINTVAR(startTime);
-PRINTVAR(chartWidth);
-PRINT("   X_RANGE: " + String(X_RANGE) + "\n");
-PRINT("   X_HOUR: " + String(X_HOUR) + "\n");
+    unsigned newX = (float)((timestamp-startTime) % chartWidth) / chartWidth * X_PIXELS + X_ZERO;
 
     if (newX != barX) {
       if (barX) {
@@ -118,17 +116,57 @@ PRINT("   X_HOUR: " + String(X_HOUR) + "\n");
     }
   }
 
+  void updateMinMax(TempType type, float temp) {
+    int i = 0;
+    bool possMin = true;
+    bool possMax = true;
+
+    byte storeTemp = min(254, (byte)(temp * 5.0));
+    storage[type][barX - X_ZERO] = storeTemp;
+    
+    do {
+      if (storage[type][i] == 255)
+        break;
+        
+      if (storeTemp > storage[type][i])
+        possMin = false;
+      if (storeTemp < storage[type][i])
+        possMax = false;
+    }
+    while ((++i<X_PIXELS) && (possMin || possMax));
+
+    if (possMin)
+      minTemp[type] = temp;
+    if (possMax)
+      maxTemp[type] = temp;
+  }
+
   void updateTemp(TempType type, float temp) {
-    tft.drawText(temps[type].x, 20, String(temp, 1) + "  ", temps[type].colour);
+    updateMinMax(type, temp);
+    
+    tft.setFont(Terminal12x16);
+    tft.drawText(temps[type].x, 18, String(temp, 1) + "  ", temps[type].colour);
+
+    tft.setFont(Terminal6x8);
+    tft.drawText(temps[type].x, 35, String(minTemp[type], 1) + "/" + String(maxTemp[type], 1) + "  ", temps[type].colour);
   }
 
   public:
   Display()
    : startTime(millis()),
-     barX(0) {
-    
+     barX(0),
+     storage({0}) {
   }
   
+  void initMinMax(void) {
+    storage[beer] = new byte[X_PIXELS];
+    storage[coolant] = new byte[X_PIXELS];
+    storage[air] = new byte[X_PIXELS];
+    for (int i=0; i<X_PIXELS; i++) {
+      storage[beer][i] = storage[coolant][i] = storage[air][i] = 255;
+    }
+  }
+
   void init(void) {
     tft.begin();
     tft.setOrientation(ORIENTATION);
@@ -140,6 +178,8 @@ PRINT("   X_HOUR: " + String(X_HOUR) + "\n");
     tft.drawText(temps[beer].x, 0, temps[beer].text, temps[beer].colour);
     tft.drawText(temps[coolant].x, 0, temps[coolant].text, temps[coolant].colour);
     tft.drawText(temps[air].x, 0, temps[air].text, temps[air].colour);
+
+    initMinMax();
     
     updateTemp(beer, 0);
     updateTemp(coolant, 0);
@@ -168,6 +208,7 @@ class Sensors {
   } CurvePoint;
 
   static const CurvePoint curve[];
+  static const unsigned tempInputs[];
 
   public:
   void init(void) {
@@ -186,8 +227,6 @@ class Sensors {
     float fraction = (float)(res - curve[i-1].resistance) / (float)(curve[i].resistance - curve[i-1].resistance);
         
     float temp = curve[i-1].temp + fraction * (curve[i].temp - curve[i-1].temp);
-
-    PRINT("Sensor: " + String(type) + ", in: " + String(in) + ", res: " + String(res) + ", temp: " + String(temp, 1) + "\n");
 
     return temp;
   }
@@ -246,22 +285,28 @@ static const Sensors::CurvePoint Sensors::curve[] = {
   { UINT_MAX, -1 }
 };
 
+static const unsigned Sensors::tempInputs[] = { A0, A1, A2 };
+
 Display lcd;
 Sensors sensors;
 
 // Setup
 void setup() {
-  lcd.init();
-  sensors.init();
-  
 #ifdef DEBUG
   Serial.begin(9600);
 #endif
+
+  PRINT("Init Start\n");
+  
+  lcd.init();
+  sensors.init();
+
+  PRINT("Init Done\n");
 }
 
 // Loop
 void loop() {
-  Serial.print("Loop Start\n");
+  PRINT("Loop Start\n");
 
   do {
     lcd.addDataPoint(millis(), sensors.getTemp(beer), sensors.getTemp(coolant), sensors.getTemp(air));
