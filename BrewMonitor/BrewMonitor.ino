@@ -61,7 +61,7 @@ class Display {
 
   private:
   byte *storage[3] = {};
-  float minTemp[3] = {};
+  float minTemp[3] = { 99.0, 99.0, 99.0};
   float maxTemp[3] = {};
   TFT_22_ILI9225 tft = TFT_22_ILI9225(TFT_RST, TFT_RS, TFT_CS, TFT_LED, TFT_BRIGHTNESS);
   TextDetails temps[3] = {
@@ -109,36 +109,48 @@ class Display {
   
   void plotPoints(float beerTemp, float coolantTemp, float airTemp) {
     if (barX > X_ZERO) {
-      tft.drawLine(barX, Y_TOP, barX, Y_ZERO-1, COLOR_BLACK);
       tft.drawPixel(barX, tempToY(beerTemp), temps[beer].colour);
       tft.drawPixel(barX, tempToY(coolantTemp), temps[coolant].colour);
       tft.drawPixel(barX, tempToY(airTemp), temps[air].colour);
     }
   }
 
-  void updateMinMax(TempType type, float temp) {
-    int i = 0;
-    bool possMin = true;
-    bool possMax = true;
+  byte tempToStoreVal(float temp) {
+    return (byte)(temp * 5.0);
+  }
 
-    byte storeTemp = min(254, (byte)(temp * 5.0));
-    storage[type][barX - X_ZERO] = storeTemp;
-    
-    do {
-      if (storage[type][i] == 255)
-        break;
-        
-      if (storeTemp > storage[type][i])
-        possMin = false;
-      if (storeTemp < storage[type][i])
-        possMax = false;
+  float tempFromStoreVal(byte val) {
+    return (float)val / 5.0;
+  }
+
+  void initMinMax(void) {
+    storage[beer] = new byte[X_PIXELS];
+    storage[coolant] = new byte[X_PIXELS];
+    storage[air] = new byte[X_PIXELS];
+    for (int i=0; i<X_PIXELS; i++) {
+      storage[beer][i] = storage[coolant][i] = storage[air][i] = 255;
     }
-    while ((++i<X_PIXELS) && (possMin || possMax));
+  }
 
-    if (possMin)
-      minTemp[type] = temp;
-    if (possMax)
-      maxTemp[type] = temp;
+  void updateMinMax(TempType type, float temp) {
+    storage[type][barX - X_ZERO] = min(254, tempToStoreVal(temp));
+    byte minT = 255;
+    byte maxT = 0;
+    
+    for (int i=0; i<X_PIXELS; i++) {
+      byte val = storage[type][i];
+      
+      if (val == 255)
+        break;
+
+      if (minT > val)
+        minT = val;
+      if (maxT < val)
+        maxT = val;
+    }
+
+    minTemp[type] = tempFromStoreVal(minT);
+    maxTemp[type] = tempFromStoreVal(maxT);
   }
 
   void updateTemp(TempType type, float temp) {
@@ -158,15 +170,6 @@ class Display {
      storage({0}) {
   }
   
-  void initMinMax(void) {
-    storage[beer] = new byte[X_PIXELS];
-    storage[coolant] = new byte[X_PIXELS];
-    storage[air] = new byte[X_PIXELS];
-    for (int i=0; i<X_PIXELS; i++) {
-      storage[beer][i] = storage[coolant][i] = storage[air][i] = 255;
-    }
-  }
-
   void init(void) {
     tft.begin();
     tft.setOrientation(ORIENTATION);
@@ -181,10 +184,6 @@ class Display {
 
     initMinMax();
     
-    updateTemp(beer, 0);
-    updateTemp(coolant, 0);
-    updateTemp(air, 0);
-
     drawAxes();
 
     startTime = millis();
@@ -200,7 +199,7 @@ class Display {
   }
 };
 
-class Sensors {
+class TempSensors {
   private:
   typedef struct CurvePoiont {
     unsigned long resistance;
@@ -210,13 +209,25 @@ class Sensors {
   static const CurvePoint curve[];
   static const unsigned tempInputs[];
 
+  private:
+  unsigned long getAnalogueIn(TempType type) {
+    static const unsigned long samples = 20;
+    unsigned long total = 0;
+    
+    for (int i=0; i<samples; i++) {
+       total += analogRead(tempInputs[type]);
+       delay(2);
+    }
+
+    return total / samples;
+  }
   public:
   void init(void) {
     
   }
 
   float getTemp(TempType type) {
-    unsigned long in = analogRead(tempInputs[type]);
+    unsigned long in = getAnalogueIn(type);
     unsigned long res = in * 10000UL / (1024UL - in);
     int i=0;
 
@@ -233,7 +244,7 @@ class Sensors {
 };
 
 // Variables and constants
-static const Sensors::CurvePoint Sensors::curve[] = { 
+static const TempSensors::CurvePoint TempSensors::curve[] = { 
   { 0, 51 },
   { 3525, 50.56 },
   { 3679, 49.44 },
@@ -285,10 +296,10 @@ static const Sensors::CurvePoint Sensors::curve[] = {
   { UINT_MAX, -1 }
 };
 
-static const unsigned Sensors::tempInputs[] = { A0, A1, A2 };
+static const unsigned TempSensors::tempInputs[] = { A0, A1, A2 };
 
 Display lcd;
-Sensors sensors;
+TempSensors sensors;
 
 // Setup
 void setup() {
