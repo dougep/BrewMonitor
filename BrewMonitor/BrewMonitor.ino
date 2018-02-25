@@ -19,10 +19,12 @@
 #define TFT_SDI 11  // MOSI
 #define TFT_CLK 13  // SCK
 #define TFT_LED 5   // 0 if wired to +5V directly
-
 #define TFT_BRIGHTNESS 200 // Initial brightness of TFT backlight (optional)
+#define COLOR_RELAY_ON 0x6040
 
-#define X_RANGE 12
+#define RELAY_PIN 8
+
+#define X_RANGE 1
 #define Y_RANGE 4
 
 #define X_ZERO 5
@@ -90,12 +92,12 @@ class Display {
     }
   }
 
-  void advanceBar(unsigned long timestamp) {
+  void advanceBar(unsigned long timestamp, bool relayOn) {
     unsigned newX = (float)((timestamp-startTime) % chartWidth) / chartWidth * X_PIXELS + X_ZERO;
 
     if (newX != barX) {
       if (barX) {
-        tft.drawLine(barX+1, Y_TOP, barX+1, Y_ZERO-1, COLOR_BLACK);
+        tft.drawLine(barX+1, Y_TOP, barX+1, Y_ZERO-1, relayOn ? COLOR_RELAY_ON : COLOR_BLACK);
       }
 
       barX = newX;
@@ -189,12 +191,12 @@ class Display {
     startTime = millis();
   }
 
-  void addDataPoint(unsigned long timestamp, float beerTemp, float coolantTemp, float airTemp) {
+  void addDataPoint(unsigned long timestamp, bool relayOn, float beerTemp, float coolantTemp, float airTemp) {
     updateTemp(beer, beerTemp);
     updateTemp(coolant, coolantTemp);
     updateTemp(air, airTemp);
 
-    advanceBar(timestamp);
+    advanceBar(timestamp, relayOn);
     plotPoints(beerTemp, coolantTemp, airTemp);
   }
 };
@@ -311,6 +313,7 @@ void setup() {
   
   lcd.init();
   sensors.init();
+  pinMode(RELAY_PIN, INPUT_PULLUP);
 
   PRINT("Init Done\n");
 }
@@ -320,7 +323,7 @@ void loop() {
   PRINT("Loop Start\n");
 
   do {
-    lcd.addDataPoint(millis(), sensors.getTemp(beer), sensors.getTemp(coolant), sensors.getTemp(air));
+    lcd.addDataPoint(millis(), digitalRead(RELAY_PIN) == LOW, sensors.getTemp(beer), sensors.getTemp(coolant), sensors.getTemp(air));
     
     delay(5000);
   }
