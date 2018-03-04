@@ -20,11 +20,11 @@
 #define TFT_CLK 13  // SCK
 #define TFT_LED 5   // 0 if wired to +5V directly
 #define TFT_BRIGHTNESS 200 // Initial brightness of TFT backlight (optional)
-#define COLOR_RELAY_ON 0x6040
+#define COLOR_RELAY_ON 0x9840
 
 #define RELAY_PIN 8
 
-#define X_RANGE 1
+#define X_RANGE 12
 #define Y_RANGE 4
 
 #define X_ZERO 5
