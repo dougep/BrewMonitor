@@ -2,6 +2,8 @@
 #include "SPI.h"
 #include <limits.h>
 #include <TFT_22_ILI9225.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
 #define DEBUG
 
@@ -24,6 +26,8 @@
 
 #define RELAY_PIN 8
 
+#define TEMP_SENSORS_PIN 9
+
 #define X_RANGE 12
 #define Y_RANGE 4
 
@@ -44,6 +48,8 @@ typedef enum {
   air = 2
 } TempType;
 
+//============================================================
+
 class TextDetails {
   public:
   TextDetails(String text, unsigned x, unsigned colour)
@@ -56,6 +62,8 @@ class TextDetails {
   unsigned  x;
   unsigned  colour;
 };
+
+//============================================================
 
 class Display {
   private:
@@ -201,104 +209,40 @@ class Display {
   }
 };
 
+//============================================================
+
 class TempSensors {
   private:
-  typedef struct CurvePoiont {
-    unsigned long resistance;
-    float temp;
-  } CurvePoint;
-
-  static const CurvePoint curve[];
-  static const unsigned tempInputs[];
+  static const byte SENSOR_ADDR_BEER[];
+  static const byte SENSOR_ADDR_COOLANT[];
+  static const byte SENSOR_ADDR_AIR[];
 
   private:
-  unsigned long getAnalogueIn(TempType type) {
-    static const unsigned long samples = 20;
-    unsigned long total = 0;
-    
-    for (int i=0; i<samples; i++) {
-       total += analogRead(tempInputs[type]);
-       delay(2);
-    }
-
-    return total / samples;
-  }
+  OneWire *ds;
+  DallasTemperature *rawSensors;
+  
   public:
   void init(void) {
-    
+    ds = new OneWire(TEMP_SENSORS_PIN);
+    rawSensors = new DallasTemperature(ds);
+
+    rawSensors->begin();
   }
 
-  float getTemp(TempType type) {
-    unsigned long in = getAnalogueIn(type);
-    unsigned long res = in * 10000UL / (1024UL - in);
-    int i=0;
-
-    while (curve[i].resistance < res) {
-      i++;
-    }
-
-    float fraction = (float)(res - curve[i-1].resistance) / (float)(curve[i].resistance - curve[i-1].resistance);
-        
-    float temp = curve[i-1].temp + fraction * (curve[i].temp - curve[i-1].temp);
-
-    return temp;
+  void getTemps(float *temps) {
+    rawSensors->requestTemperatures();
+    temps[beer] = rawSensors->getTempC(SENSOR_ADDR_BEER);
+    temps[coolant] = rawSensors->getTempC(SENSOR_ADDR_COOLANT);
+    temps[air] = rawSensors->getTempC(SENSOR_ADDR_AIR);
   }
 };
+
+//============================================================
 
 // Variables and constants
-static const TempSensors::CurvePoint TempSensors::curve[] = { 
-  { 0, 51 },
-  { 3525, 50.56 },
-  { 3679, 49.44 },
-  { 3838, 48.33 },
-  { 4006, 47.22 },
-  { 4182, 46.11 },
-  { 4367, 45 },
-  { 4561, 43.89 },
-  { 4766, 42.78 },
-  { 4981, 41.67 },
-  { 5207, 40.56 },
-  { 5447, 39.44 },
-  { 5697, 38.33 },
-  { 5960, 37.22 },
-  { 6238, 36.11 },
-  { 6530, 35 },
-  { 6838, 33.89 },
-  { 7163, 32.78 },
-  { 7505, 31.67 },
-  { 7866, 30.56 },
-  { 8251, 29.44 },
-  { 8653, 28.33 },
-  { 9078, 27.22 },
-  { 9526, 26.11 },
-  { 10000, 25 },
-  { 10501, 23.89 },
-  { 11030, 22.78 },
-  { 11590, 21.67 },
-  { 12182, 20.56 },
-  { 12814, 19.44 },
-  { 13478, 18.33 },
-  { 14180, 17.22 },
-  { 14925, 16.11 },
-  { 15714, 15 },
-  { 16550, 13.89 },
-  { 17437, 12.78 },
-  { 18378, 11.67 },
-  { 19376, 10.56 },
-  { 20446, 9.44 },
-  { 21573, 8.33 },
-  { 22770, 7.22 },
-  { 24042, 6.11 },
-  { 25395, 5 },
-  { 26834, 3.89 },
-  { 28365, 2.78 },
-  { 29996, 1.67 },
-  { 31732, 0.56 },
-  { 33599, -0.56 },
-  { UINT_MAX, -1 }
-};
-
-static const unsigned TempSensors::tempInputs[] = { A0, A1, A2 };
+const byte TempSensors::SENSOR_ADDR_COOLANT[] = { 0x28, 0xf2, 0xe3, 0x95, 0x0a, 0x00, 0x00, 0x9c };
+const byte TempSensors::SENSOR_ADDR_AIR[] = { 0x28, 0x8a, 0xf7, 0x95, 0x0a, 0x00, 0x00, 0xc6 };
+const byte TempSensors::SENSOR_ADDR_BEER[] = { 0x28, 0xc6, 0xed, 0x95, 0x0a, 0x00, 0x00, 0x0f };
 
 Display lcd;
 TempSensors sensors;
@@ -323,7 +267,10 @@ void loop() {
   PRINT("Loop Start\n");
 
   do {
-    lcd.addDataPoint(millis(), digitalRead(RELAY_PIN) == LOW, sensors.getTemp(beer), sensors.getTemp(coolant), sensors.getTemp(air));
+    float temps[3];
+
+    sensors.getTemps(temps);
+    lcd.addDataPoint(millis(), digitalRead(RELAY_PIN) == LOW, temps[beer], temps[coolant], temps[air]);
     
     delay(5000);
   }
