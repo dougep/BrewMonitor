@@ -1,8 +1,6 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 
-#define TEMP_SENSORS_PIN 9
-
 class TempSensors {
   private:
   static const byte SENSOR_ADDR_BEER[];
@@ -14,8 +12,11 @@ class TempSensors {
   DallasTemperature *rawSensors;
   
   public:
-  void init(void) {
-    ds = new OneWire(TEMP_SENSORS_PIN);
+  TempSensors() {
+  }
+
+  void init(int pin) {
+    ds = new OneWire(pin);
     rawSensors = new DallasTemperature(ds);
 
     rawSensors->begin();
