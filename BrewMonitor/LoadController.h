@@ -1,5 +1,27 @@
 #include <EEPROM.h>
 
+template <class T> void eeGet(int ee,T& value) {
+#ifdef ARDUINO_ARCH_STM32F1
+  byte* p=(byte*)&value;
+  unsigned int i;
+  for(i=0;i<sizeof(value);i++)
+    *p++=EEPROM.read(ee++);
+#else
+  EEPROM.get(ee, value);
+#endif
+}
+
+template <class T> void eePut(int ee,T& value) {
+#ifdef ARDUINO_ARCH_STM32F1
+  const byte* p=(const byte*)&value;
+  unsigned int i;
+  for(i=0;i<sizeof(value);i++)
+    EEPROM.update(ee++,*p++);
+#else
+  EEPROM.put(ee, value);
+#endif
+}
+
 class LoadController {
   public:
   typedef enum {
@@ -43,13 +65,13 @@ class LoadController {
         
         int addr = DATA_ADDR;
         
-        EEPROM.get(addr, controlMode);
+        eeGet(addr, controlMode);
         addr += sizeof(controlMode);
-        EEPROM.get(addr, targetTemp);
+        eeGet(addr, targetTemp);
         addr += sizeof(targetTemp);
-        EEPROM.get(addr, allowedRange);
+        eeGet(addr, allowedRange);
         addr += sizeof(allowedRange);
-        EEPROM.get(addr, powerControlCycleTime);
+        eeGet(addr, powerControlCycleTime);
       } else {
         PRINT(F("LC No guard\n"));
       }
@@ -58,14 +80,14 @@ class LoadController {
     void save(void) {
       int addr = DATA_ADDR;
       
-      EEPROM.put(addr, controlMode);
+      eePut(addr, controlMode);
       addr += sizeof(controlMode);
-      EEPROM.put(addr, targetTemp);
+      eePut(addr, targetTemp);
       addr += sizeof(targetTemp);
-      EEPROM.put(addr, allowedRange);
+      eePut(addr, allowedRange);
       addr += sizeof(allowedRange);
-      EEPROM.put(addr, powerControlCycleTime);
-      EEPROM.put(GUARD_ADDR, GUARD_VALUE);
+      eePut(addr, powerControlCycleTime);
+      eePut(GUARD_ADDR, GUARD_VALUE);
     }
   };
 

@@ -1,4 +1,8 @@
-#include <OneWire.h>
+#ifdef ARDUINO_ARCH_STM32F1
+  #include <OneWireSTM.h>
+#else
+  #include <OneWire.h>
+#endif
 #include <DallasTemperature.h>
 
 class TempSensors {
