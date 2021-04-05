@@ -1,7 +1,4 @@
 // Include application, user and local libraries
-#define __STM32F1__
-#define STM32
-
 #include "SPI.h"
 #include <limits.h>
 
@@ -19,6 +16,7 @@
 #include "LoadController.h"
 #include "ChartDisplay.h"
 #include "TempSensors.h"
+#include "Buttons.h"
 #include "MenuHandler.h"
 
 //============================================================
@@ -39,6 +37,11 @@
   #define TFT_RS  PB5
   #define TFT_RST PB6
   #define TFT_CS  PB7
+
+  #define BTN_UP PA0
+  #define BTN_DOWN PA1
+  #define BTN_SELECT PA2
+  #define BTN_BACK PA3
 #else
   #define TFT_LED 5   // 0 if wired to +5V directly
   #define TFT_CLK 13  // SCK
@@ -52,6 +55,7 @@
 #define TFT_BRIGHTNESS 100 // Initial brightness of TFT backlight (optional)
 
 TFT_22_ILI9225 tft(TFT_RST, TFT_RS, TFT_CS, TFT_LED, TFT_BRIGHTNESS);
+ButtonController buttons;
 ChartDisplay chartDisplay(tft);
 TempSensors sensors;
 LoadController loadControl;
@@ -68,19 +72,17 @@ void setup() {
 
   tft.begin();
   tft.setOrientation(ORIENTATION);
-//  tft.setDisplay(true);
-//  tft.setBacklight(true);
-//  tft.setBacklightBrightness(200);
   chartDisplay.init();
   sensors.init(TEMP_SENSORS_PIN);
   loadControl.init(LOAD_CONTROL_PIN);
+  buttons.init(BTN_UP, BTN_DOWN, BTN_SELECT, BTN_BACK);
   pinMode(RELAY_PIN, INPUT_PULLUP);
 
   PRINT(F("Init Done\n"));
 }
 
 void handleMenu() {
-  MenuHandler handler(tft);
+  MenuHandler handler(tft, buttons);
 
   handler.presentMenu();
 }
@@ -94,12 +96,12 @@ void loop() {
     float temps[3];
 
     sensors.getTemps(temps);
-    
-    chartDisplay.addDataPoint(millis(), digitalRead(RELAY_PIN) == LOW, temps[beer], temps[coolant], temps[air]);
     PRINT("Temps:\n");
     PRINTVAR(temps[beer]);
     PRINTVAR(temps[coolant]);
     PRINTVAR(temps[air]);
+    
+    chartDisplay.addDataPoint(millis(), digitalRead(RELAY_PIN) == LOW, temps[beer], temps[coolant], temps[air]);
 
     loadControl.check(temps[beer]);
     
@@ -107,7 +109,7 @@ void loop() {
 
     handleMenu();
 
-    delay(3000);
+    delay(6000);
   }
   while(true);
 }
