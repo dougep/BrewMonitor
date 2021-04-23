@@ -48,8 +48,8 @@ class LoadController {
     
     public:
     ControlMode controlMode;
-    float targetTemp;
-    float allowedRange;
+    unsigned targetTemp;
+    unsigned allowedRange;
     unsigned long powerControlCycleTime;
 
     Settings()
@@ -118,6 +118,24 @@ class LoadController {
       updatePowerControl(beerTemp);
   }
 
+  ControlMode getControlMode(void) {
+    return settings.controlMode;
+  }
+
+  void setControlMode(ControlMode mode) {
+    settings.controlMode = mode;
+    settings.save();
+  }
+
+  unsigned getTargetTemp(void) {
+    return settings.targetTemp;
+  }
+
+  void setTargetTemp(unsigned target) {
+    settings.targetTemp = target;
+    settings.save();
+  }
+
   private:
   void initialisePowerControl(int pin) {
     controlPin = pin;
@@ -132,7 +150,7 @@ class LoadController {
     PRINTVAR(settings.targetTemp);
     PRINTVAR(settings.allowedRange);
     PRINTVAR(settings.powerControlCycleTime);
-}
+  }
 
   void setPowerControlOn(void) {
     digitalWrite(controlPin, HIGH);
@@ -164,17 +182,17 @@ class LoadController {
 
   bool goalSatisfied(float beerTemp) {
     if (settings.controlMode == Heating) {
-      return beerTemp >= settings.targetTemp + settings.allowedRange / 2;
+      return beerTemp >= (float)settings.targetTemp + (float)settings.allowedRange / 2.0;
     } else {
-      return beerTemp <= settings.targetTemp - settings.allowedRange / 2;
+      return beerTemp <= (float)settings.targetTemp - (float)settings.allowedRange / 2.0;
     }
   }
   
   bool limitBreached(float beerTemp) {
     if (settings.controlMode == Heating) {
-      return beerTemp < settings.targetTemp - settings.allowedRange / 2;
+      return beerTemp < (float)settings.targetTemp - (float)settings.allowedRange / 2.0;
     } else {
-      return beerTemp > settings.targetTemp + settings.allowedRange / 2;
+      return beerTemp > (float)settings.targetTemp + (float)settings.allowedRange / 2.0;
     }
   }
   

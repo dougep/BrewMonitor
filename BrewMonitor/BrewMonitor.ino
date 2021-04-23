@@ -6,9 +6,11 @@
 
 #ifdef DEBUG
   #define PRINT(...) Serial.print(__VA_ARGS__)
+  #define PRINTLN(...) { Serial.print(__VA_ARGS__); Serial.print("\n"); }
   #define PRINTVAR(v) Serial.print("   "#v": " + String(v) + "\n")
 #else
   #define PRINT(...)
+  #define PRINTLN(...)
   #define PRINTVAR(v)
 #endif
 
@@ -21,8 +23,6 @@
 
 //============================================================
 // Variables and constants
-
-#define RELAY_PIN 8
 
 #ifdef ARDUINO_ARCH_STM32F1
   #define LOAD_CONTROL_PIN PB8
@@ -51,6 +51,7 @@
   #define TFT_CS  2  // SS
 #endif
 
+#define SCREEN_TIMEOUT 60000UL  // Milliseconds
 #define ORIENTATION 3
 #define TFT_BRIGHTNESS 100 // Initial brightness of TFT backlight (optional)
 
@@ -59,6 +60,9 @@ ButtonController buttons;
 ChartDisplay chartDisplay(tft);
 TempSensors sensors;
 LoadController loadControl;
+
+bool screenOnFlag = true;
+unsigned long screenTimeoutStart = millis();
 
 //============================================================
 // Setup
@@ -76,15 +80,40 @@ void setup() {
   sensors.init(TEMP_SENSORS_PIN);
   loadControl.init(LOAD_CONTROL_PIN);
   buttons.init(BTN_UP, BTN_DOWN, BTN_SELECT, BTN_BACK);
-  pinMode(RELAY_PIN, INPUT_PULLUP);
 
+  resetScreenTimeout();
+  
   PRINT(F("Init Done\n"));
 }
 
 void handleMenu() {
-  MenuHandler handler(tft, buttons);
+  MenuHandler handler(tft, buttons, loadControl);
 
   handler.presentMenu();
+}
+
+void screenOn(void) {
+  tft.setBacklight(true);
+  tft.setDisplay(true);
+  screenOnFlag = true;
+}
+
+void screenOff(void) {
+  tft.setBacklight(false);
+  tft.setDisplay(false);
+  screenOnFlag = false;
+}
+
+bool screenIsOn(void) {
+  return screenOnFlag;
+}
+
+void resetScreenTimeout(void) {
+  screenTimeoutStart = millis();
+}
+
+bool screenTimedOut(void) {
+  return millis() - screenTimeoutStart >= SCREEN_TIMEOUT;
 }
 
 //============================================================
@@ -101,15 +130,35 @@ void loop() {
     PRINTVAR(temps[coolant]);
     PRINTVAR(temps[air]);
     
-    chartDisplay.addDataPoint(millis(), digitalRead(RELAY_PIN) == LOW, temps[beer], temps[coolant], temps[air]);
+    chartDisplay.addDataPoint(millis(), temps[beer], temps[coolant], temps[air]);
 
     loadControl.check(temps[beer]);
-    
-    delay(3000);
 
-    handleMenu();
+    if (screenTimedOut()) {
+      screenOff();
+    }
 
-    delay(6000);
+    for (int i=0; i<30; i++) {
+      if (!screenIsOn()) {
+        if (buttons.buttonPressed(ButtonAny)) {
+          screenOn();
+          
+          resetScreenTimeout();
+        }
+      } else {
+        if (buttons.buttonPressed(ButtonSelect)) {
+          handleMenu();
+  
+          chartDisplay.redraw();
+  
+          resetScreenTimeout();
+  
+          break;
+        }
+      }
+
+      delay(50);
+    }
   }
   while(true);
 }

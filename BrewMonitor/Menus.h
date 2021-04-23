@@ -91,6 +91,8 @@ class Menu {
     subMenus(new Menu*[itemCount]) {
       memset(subMenus, 0, itemCount * sizeof(Menu*));
       memset(callbacks, 0, MAX_CALLBACKS * sizeof(Menu*));
+
+      addCallback(callback);
   }
 
   virtual ~Menu() {
@@ -114,14 +116,29 @@ class Menu {
     }
   }
 
+  bool adjustViewWindow(void) {
+      if (activeItem < topIndex) {
+        topIndex = activeItem;
+        draw();
+
+        return true;
+      }
+      
+      if (activeItem - topIndex >= rowCount) {
+        topIndex = activeItem - rowCount + 1;
+        draw();
+
+        return true;
+      }
+
+      return false;
+  }
+
   void upAction(void) {
     if (activeItem > 0) {
       activeItem--;
 
-      if (activeItem < topIndex) {
-        topIndex = activeItem;
-        draw();
-      } else {
+      if (!adjustViewWindow()) {
         drawItem(activeItem);
         drawItem(activeItem + 1);
       }
@@ -132,10 +149,7 @@ class Menu {
     if (activeItem < itemCount - 1) {
       activeItem++;
 
-      if (activeItem - topIndex >= rowCount) {
-        topIndex = activeItem - rowCount + 1;
-        draw();
-      } else {
+      if (!adjustViewWindow()) {
         drawItem(activeItem);
         drawItem(activeItem - 1);
       }
@@ -154,6 +168,21 @@ class Menu {
 
   const char *getSelectedValue(void) {
     return selectedItem >= 0 ? items[selectedItem] : 0;
+  }
+
+  int getSelectedIndex(void) {
+    return selectedItem;
+  }
+
+  void setSelectedIndex(int index) {
+    if (index < 0) {
+      selectedItem = -1;
+      activeItem = 0;
+    } else if (index < itemCount) {
+      selectedItem = activeItem = index;
+    }
+
+    adjustViewWindow();
   }
 
   void drawInit(TFT_22_ILI9225 &tft, unsigned count, unsigned x, unsigned y, unsigned rowSpace, unsigned width, unsigned height, unsigned colour) {
@@ -190,9 +219,18 @@ class MenuDisplay : public MenuCallback {
     menu->draw();
   }
 
+  void resetTimeout(void) {
+    timeoutCheck = millis();
+  }
+
+  bool timeout(void) {
+    return millis() - timeoutCheck >= 20000;
+  }
+
   private:
   TFT_22_ILI9225 &tft;
   ButtonController &buttons;
+  unsigned long timeoutCheck;
   const unsigned screenWidth;
   const unsigned screenHeight;
   
@@ -200,6 +238,7 @@ class MenuDisplay : public MenuCallback {
   MenuDisplay(TFT_22_ILI9225 &tft, ButtonController &buttons)
   : tft(tft),
     buttons(buttons),
+    timeoutCheck(0),
     screenWidth(tft.maxX()),
     screenHeight(tft.maxY()) {
     
@@ -213,20 +252,24 @@ class MenuDisplay : public MenuCallback {
     }
     tft.fillRectangle(MENU_X, MENU_Y, MENU_X+MENU_WIDTH, MENU_Y+MENU_HEIGHT, BACKGROUND_COLOUR);
     tft.setFont(Terminal11x16);
-
-    menu->drawInit(tft, NUM_ROWS, MENU_X+ROW_X_PAD, MENU_Y+ROW_Y_PAD, ROW_HEIGHT, MENU_WIDTH-2*ROW_X_PAD, tft.getFont().height, MENU_COLOUR);
     
     menu->addCallback(this);
-
+    menu->drawInit(tft, NUM_ROWS, MENU_X+ROW_X_PAD, MENU_Y+ROW_Y_PAD, ROW_HEIGHT, MENU_WIDTH-2*ROW_X_PAD, tft.getFont().height, MENU_COLOUR);
     menu->draw();
 
-    while (!exitMenu) {
+    resetTimeout();
+
+    while (!exitMenu && !timeout()) {
       if (buttons.buttonPressed(ButtonUp)) {
         menu->upAction();
+
+        resetTimeout();
       }
 
       if (buttons.buttonPressed(ButtonDown)) {
         menu->downAction();
+
+        resetTimeout();
       }
 
       if (buttons.buttonPressed(ButtonSelect)) {
@@ -235,13 +278,15 @@ class MenuDisplay : public MenuCallback {
         if (menu->getSelectedValue()) {
           exitMenu = true;
         }
+
+        resetTimeout();
       }
 
       if (buttons.buttonPressed(ButtonBack)) {
         exitMenu = true;
       }
 
-      delay(100);
+      delay(50);
     }
   }
 };

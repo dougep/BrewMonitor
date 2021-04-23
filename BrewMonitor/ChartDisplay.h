@@ -1,7 +1,7 @@
 #include <TFT_22_ILI9225.h>
 
-#define X_RANGE 12
-#define Y_RANGE 4
+#define X_RANGE 1   // Hours
+#define Y_RANGE 4   // *10 Deg
 
 #define X_ZERO 5
 #define Y_ZERO (height-5-1)
@@ -13,8 +13,6 @@
 #define Y_5DEG (Y_10DEG/2)
 #define Y_TOP (Y_ZERO-Y_RANGE*Y_10DEG)
 #define Y_BOTTOM (height-1)
-
-#define COLOR_RELAY_ON 0x9840
 
 class ChartDisplay {
   private:
@@ -66,16 +64,69 @@ class ChartDisplay {
     }
   }
 
-  void advanceBar(unsigned long timestamp, bool relayOn) {
+  void plotData(void) {
+    unsigned currentX = barX;
+    float beerTemp;
+    float coolantTemp;
+    float airTemp;
+
+    PRINTLN("Plot data");
+    PRINTLN(X_PIXELS);
+
+    int x;
+    for (x=0; x < X_PIXELS; x++) {
+      if (storage[beer][x] != 255) {
+        barX = x + X_ZERO;
+        beerTemp = tempFromStoreVal(storage[beer][x]);
+        coolantTemp = tempFromStoreVal(storage[coolant][x]);
+        airTemp = tempFromStoreVal(storage[air][x]);
+        plotPoints(beerTemp, coolantTemp, airTemp);
+      }
+    }
+
+    PRINTVAR(x);
+
+    barX = currentX;
+  }
+
+//  void drawBar(unsigned long timestamp) {
+//    unsigned newX = (float)((timestamp-startTime) % chartWidth) / chartWidth * X_PIXELS + X_ZERO;
+//
+//    barX = newX;
+//    tft.drawLine(barX+1, Y_TOP, barX+1, Y_ZERO-1, COLOR_AZUR);
+//  }
+//  
+  void updateTemps(unsigned long timestamp, float beerTemp, float coolantTemp, float airTemp) {
     unsigned newX = (float)((timestamp-startTime) % chartWidth) / chartWidth * X_PIXELS + X_ZERO;
+
+//    for (; barX < newX; barX++) {
+//      if (barX) {
+//        tft.drawLine(barX+1, Y_TOP, barX+1, Y_ZERO-1, COLOR_BLACK);
+//      }
+//
+//      barX = newX;
+//      tft.drawLine(barX+1, Y_TOP, barX+1, Y_ZERO-1, COLOR_AZUR);
+//
+//      updateTemp(beer, beerTemp);
+//      updateTemp(coolant, coolantTemp);
+//      updateTemp(air, airTemp);
+//
+//      plotPoints(beerTemp, coolantTemp, airTemp);
+//    }
 
     if (newX != barX) {
       if (barX) {
-        tft.drawLine(barX+1, Y_TOP, barX+1, Y_ZERO-1, relayOn ? COLOR_RELAY_ON : COLOR_BLACK);
+        tft.drawLine(barX+1, Y_TOP, barX+1, Y_ZERO-1, COLOR_BLACK);
       }
 
       barX = newX;
       tft.drawLine(barX+1, Y_TOP, barX+1, Y_ZERO-1, COLOR_AZUR);
+
+      updateTemp(beer, beerTemp);
+      updateTemp(coolant, coolantTemp);
+      updateTemp(air, airTemp);
+
+      plotPoints(beerTemp, coolantTemp, airTemp);
     }
   }
 
@@ -100,29 +151,31 @@ class ChartDisplay {
   }
 
   void initMinMax(void) {
-    storage[beer] = new byte[X_PIXELS];
-    storage[coolant] = new byte[X_PIXELS];
-    storage[air] = new byte[X_PIXELS];
+    storage[beer] = new byte[X_PIXELS + 1];
+    storage[coolant] = new byte[X_PIXELS + 1];
+    storage[air] = new byte[X_PIXELS + 1];
+
     for (int i=0; i<X_PIXELS; i++) {
       storage[beer][i] = storage[coolant][i] = storage[air][i] = 255;
     }
   }
 
   void updateMinMax(TempType type, float temp) {
-    storage[type][barX - X_ZERO] = min(254, tempToStoreVal(temp));
     byte minT = 255;
     byte maxT = 0;
+
+    storage[type][barX - X_ZERO] = min(254, tempToStoreVal(temp));
+    storage[type][barX - X_ZERO + 1] = 255;
     
     for (int i=0; i<X_PIXELS; i++) {
       byte val = storage[type][i];
       
-      if (val == 255)
-        break;
-
-      if (minT > val)
-        minT = val;
-      if (maxT < val)
-        maxT = val;
+      if (val != 255) {
+        if (minT > val)
+          minT = val;
+        if (maxT < val)
+          maxT = val;
+      }
     }
 
     minTemp[type] = tempFromStoreVal(minT);
@@ -151,25 +204,38 @@ class ChartDisplay {
     width = tft.maxX();
     height = tft.maxY();
 
+    initMinMax();
+
+    startTime = millis();
+
+    addDataPoint(startTime, 20.0, 20.0, 20.0);
+
+    redraw();
+  }
+
+  void redraw(void) {
+    tft.clear();
+    
     tft.setFont(Terminal12x16);
 
     tft.drawText(temps[beer].x, 0, temps[beer].text, temps[beer].colour);
     tft.drawText(temps[coolant].x, 0, temps[coolant].text, temps[coolant].colour);
     tft.drawText(temps[air].x, 0, temps[air].text, temps[air].colour);
 
-    initMinMax();
-    
     drawAxes();
 
-    startTime = millis();
+    barX = 0;
+//    advanceBar(millis());
+    plotData();
   }
 
-  void addDataPoint(unsigned long timestamp, bool relayOn, float beerTemp, float coolantTemp, float airTemp) {
-    updateTemp(beer, beerTemp);
-    updateTemp(coolant, coolantTemp);
-    updateTemp(air, airTemp);
+  void addDataPoint(unsigned long timestamp, float beerTemp, float coolantTemp, float airTemp) {
+//    updateTemp(beer, beerTemp);
+//    updateTemp(coolant, coolantTemp);
+//    updateTemp(air, airTemp);
+//    advanceBar(timestamp);
 
-    advanceBar(timestamp, relayOn);
-    plotPoints(beerTemp, coolantTemp, airTemp);
+    updateTemps(timestamp, beerTemp, coolantTemp, airTemp);
+//    plotPoints(beerTemp, coolantTemp, airTemp);
   }
 };

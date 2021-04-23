@@ -1,4 +1,5 @@
 typedef enum {
+  ButtonAny,
   ButtonUp,
   ButtonDown,
   ButtonSelect,
@@ -50,6 +51,9 @@ class ButtonController {
         break;
       case ButtonBack:
         return checkButton(backPin);
+        break;
+      case ButtonAny:
+        return checkButton(upPin) || checkButton(downPin) || checkButton(selPin) || checkButton(backPin);
         break;
     }
     
