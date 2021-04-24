@@ -145,16 +145,14 @@ void loop() {
           
           resetScreenTimeout();
         }
-      } else {
-        if (buttons.buttonPressed(ButtonSelect)) {
-          handleMenu();
-  
-          chartDisplay.redraw();
-  
-          resetScreenTimeout();
-  
-          break;
-        }
+      } else if (buttons.buttonPressed(ButtonSelect)) {
+        handleMenu();
+
+        chartDisplay.redraw();
+
+        resetScreenTimeout();
+
+        break;
       }
 
       delay(50);

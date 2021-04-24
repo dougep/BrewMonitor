@@ -43,20 +43,22 @@ class LoadController {
   class Settings {
     private:
     static const int GUARD_ADDR = 0;
-    static const byte GUARD_VALUE = 0xAA;
+    static const byte GUARD_VALUE = 0xAB;
     static const int DATA_ADDR = 1;
     
     public:
     ControlMode controlMode;
     unsigned targetTemp;
     unsigned allowedRange;
-    unsigned long powerControlCycleTime;
+    unsigned powerControlDutyCycleOn;
+    unsigned powerControlDutyCycleOff;
 
     Settings()
       : controlMode(Cooling),
         targetTemp(29),
         allowedRange(2),
-        powerControlCycleTime(30000) {
+        powerControlDutyCycleOn(30),
+        powerControlDutyCycleOff(30) {
     }
 
     void load(void) {
@@ -71,7 +73,9 @@ class LoadController {
         addr += sizeof(targetTemp);
         eeGet(addr, allowedRange);
         addr += sizeof(allowedRange);
-        eeGet(addr, powerControlCycleTime);
+        eeGet(addr, powerControlDutyCycleOn);
+        addr += sizeof(powerControlDutyCycleOn);
+        eeGet(addr, powerControlDutyCycleOff);
       } else {
         PRINT(F("LC No guard\n"));
       }
@@ -86,7 +90,9 @@ class LoadController {
       addr += sizeof(targetTemp);
       eePut(addr, allowedRange);
       addr += sizeof(allowedRange);
-      eePut(addr, powerControlCycleTime);
+      eePut(addr, powerControlDutyCycleOn);
+      addr += sizeof(powerControlDutyCycleOn);
+      eePut(addr, powerControlDutyCycleOff);
       eePut(GUARD_ADDR, GUARD_VALUE);
     }
   };
@@ -136,6 +142,33 @@ class LoadController {
     settings.save();
   }
 
+  unsigned getTempRange(void) {
+    return settings.allowedRange;
+  }
+
+  void setTempRange(unsigned range) {
+    settings.allowedRange = range;
+    settings.save();
+  }
+
+  unsigned getDutyCycleOn(void) {
+    return settings.powerControlDutyCycleOn;
+  }
+
+  void setDutyCycleOn(unsigned cycle) {
+    settings.powerControlDutyCycleOn = cycle;
+    settings.save();
+  }
+
+  unsigned getDutyCycleOff(void) {
+    return settings.powerControlDutyCycleOff;
+  }
+
+  void setDutyCycleOff(unsigned cycle) {
+    settings.powerControlDutyCycleOff = cycle;
+    settings.save();
+  }
+
   private:
   void initialisePowerControl(int pin) {
     controlPin = pin;
@@ -149,7 +182,8 @@ class LoadController {
     PRINTVAR(settings.controlMode);
     PRINTVAR(settings.targetTemp);
     PRINTVAR(settings.allowedRange);
-    PRINTVAR(settings.powerControlCycleTime);
+    PRINTVAR(settings.powerControlDutyCycleOn);
+    PRINTVAR(settings.powerControlDutyCycleOff);
   }
 
   void setPowerControlOn(void) {
@@ -212,13 +246,23 @@ class LoadController {
 
   void updatePowerControl(float beerTemp) {
     if (state == Active) {
-      if (millis() - powerControlStartTime >= settings.powerControlCycleTime) {
-        if (powerControl == Energised) {
+      if (powerControl == Energised) {
+        if (millis() - powerControlStartTime >= settings.powerControlDutyCycleOn * 1000) {
           setPowerControlOff();
-        } else {
+        }
+      } else {
+        if (millis() - powerControlStartTime >= settings.powerControlDutyCycleOff * 1000) {
           setPowerControlOn();
         }
       }
+
+//      if (millis() - powerControlStartTime >= settings.powerControlCycleTime) {
+//        if (powerControl == Energised) {
+//          setPowerControlOff();
+//        } else {
+//          setPowerControlOn();
+//        }
+//      }
     }
   }
 };

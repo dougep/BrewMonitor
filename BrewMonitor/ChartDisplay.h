@@ -89,30 +89,12 @@ class ChartDisplay {
     barX = currentX;
   }
 
-//  void drawBar(unsigned long timestamp) {
-//    unsigned newX = (float)((timestamp-startTime) % chartWidth) / chartWidth * X_PIXELS + X_ZERO;
-//
-//    barX = newX;
-//    tft.drawLine(barX+1, Y_TOP, barX+1, Y_ZERO-1, COLOR_AZUR);
-//  }
-//  
   void updateTemps(unsigned long timestamp, float beerTemp, float coolantTemp, float airTemp) {
     unsigned newX = (float)((timestamp-startTime) % chartWidth) / chartWidth * X_PIXELS + X_ZERO;
 
-//    for (; barX < newX; barX++) {
-//      if (barX) {
-//        tft.drawLine(barX+1, Y_TOP, barX+1, Y_ZERO-1, COLOR_BLACK);
-//      }
-//
-//      barX = newX;
-//      tft.drawLine(barX+1, Y_TOP, barX+1, Y_ZERO-1, COLOR_AZUR);
-//
-//      updateTemp(beer, beerTemp);
-//      updateTemp(coolant, coolantTemp);
-//      updateTemp(air, airTemp);
-//
-//      plotPoints(beerTemp, coolantTemp, airTemp);
-//    }
+    updateTemp(beer, beerTemp);
+    updateTemp(coolant, coolantTemp);
+    updateTemp(air, airTemp);
 
     if (newX != barX) {
       if (barX) {
@@ -121,10 +103,6 @@ class ChartDisplay {
 
       barX = newX;
       tft.drawLine(barX+1, Y_TOP, barX+1, Y_ZERO-1, COLOR_AZUR);
-
-      updateTemp(beer, beerTemp);
-      updateTemp(coolant, coolantTemp);
-      updateTemp(air, airTemp);
 
       plotPoints(beerTemp, coolantTemp, airTemp);
     }
@@ -184,6 +162,8 @@ class ChartDisplay {
 
   void updateTemp(TempType type, float temp) {
     updateMinMax(type, temp);
+
+    tft.setBackgroundColor(COLOR_BLACK);
     
     tft.setFont(Terminal11x16);
     tft.drawText(temps[type].x, 18, String(temp, 1) + "  ", temps[type].colour);
@@ -225,17 +205,10 @@ class ChartDisplay {
     drawAxes();
 
     barX = 0;
-//    advanceBar(millis());
     plotData();
   }
 
   void addDataPoint(unsigned long timestamp, float beerTemp, float coolantTemp, float airTemp) {
-//    updateTemp(beer, beerTemp);
-//    updateTemp(coolant, coolantTemp);
-//    updateTemp(air, airTemp);
-//    advanceBar(timestamp);
-
     updateTemps(timestamp, beerTemp, coolantTemp, airTemp);
-//    plotPoints(beerTemp, coolantTemp, airTemp);
   }
 };

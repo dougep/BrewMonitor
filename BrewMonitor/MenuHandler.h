@@ -2,10 +2,10 @@
 
 #define NUMITEMS(items) (sizeof(items)/sizeof(char*))
 
-static const char *menuItems[] = { "Mode", "Target Temp", "Temp Band", "Duty Cycle" };
+static const char *menuItems[] = { "Mode", "Target Temp", "Temp Range", "Duty Cycle" };
 static const char *modeSubItems[] = { "Heating", "Cooling" };
-static const char *targetSubItems[] = { "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25" };
-static const char *bandSubItems[] = { "1", "2", "3", "4", "5" };
+static const char *targetTempSubItems[] = { "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25" };
+static const char *tempRangeSubItems[] = { "1", "2", "3", "4", "5" };
 static const char *dutyCycleSubItems[] = { "On", "Off" };
 static const char *dutyCycleOnSubItems[] = { "30", "60", "90", "120", "180", "300" };
 static const char *dutyCycleOffSubItems[] = { "30", "60", "90", "120", "180", "300" };
@@ -16,8 +16,8 @@ class MenuHandler : public MenuCallback {
   LoadController *loadControl;
   Menu *menu;
   Menu *modeSub;
-  Menu *targetSub;
-  Menu *bandSub;
+  Menu *targetTempSub;
+  Menu *tempRangeSub;
   Menu *dutyCycleSub;
   Menu *dutyCycleOnSub;
   Menu *dutyCycleOffSub;
@@ -31,17 +31,30 @@ class MenuHandler : public MenuCallback {
     }
   }
 
-  void handleTargetSelection(const char *selected) {
+  void handleTargetTempSelection(const char *selected) {
     loadControl->setTargetTemp((unsigned)atoi(selected));
   }
 
-  void handleBandSelection(const char *selected) {
+  void handleTempRangeSelection(const char *selected) {
+    loadControl->setTempRange((unsigned)atoi(selected));
   }
 
   void handleDutyCycleOnSelection(const char *selected) {
+    loadControl->setDutyCycleOn((unsigned)atoi(selected));
   }
 
   void handleDutyCycleOffSelection(const char *selected) {
+    loadControl->setDutyCycleOff((unsigned)atoi(selected));
+  }
+
+  int findEntry(int val, const char **list, unsigned count) {
+    for (int i=0; i<count; i++) {
+      if (val <= atoi(list[i])) {
+        return i;
+      }
+    }
+
+    return -1;
   }
 
   void initSelectedMode(void) {
@@ -49,14 +62,38 @@ class MenuHandler : public MenuCallback {
   }
 
   void initSelectedTargetTemp(void) {
-    unsigned target = loadControl->getTargetTemp();
-    
-    for (int i=0; i<NUMITEMS(targetSubItems); i++) {
-      if (target <= atoi(targetSubItems[i])) {
-        targetSub->setSelectedIndex(i);
+    unsigned targetTemp = loadControl->getTargetTemp();
+    int index;
 
-        break;
-      }
+    if ((index = findEntry(targetTemp, targetTempSubItems, NUMITEMS(targetTempSubItems))) >= 0) {
+        targetTempSub->setSelectedIndex(index);
+    }
+  }
+
+  void initTempRange(void) {
+    unsigned tempRange = loadControl->getTempRange();
+    int index;
+
+    if ((index = findEntry(tempRange, tempRangeSubItems, NUMITEMS(tempRangeSubItems))) >= 0) {
+        tempRangeSub->setSelectedIndex(index);
+    }
+  }
+
+  void initDutyCycleOn(void) {
+    unsigned cycle = loadControl->getDutyCycleOn();
+    int index;
+
+    if ((index = findEntry(cycle, dutyCycleOnSubItems, NUMITEMS(dutyCycleOnSubItems))) >= 0) {
+        dutyCycleOnSub->setSelectedIndex(index);
+    }
+  }
+
+  void initDutyCycleOff(void) {
+    unsigned cycle = loadControl->getDutyCycleOff();
+    int index;
+
+    if ((index = findEntry(cycle, dutyCycleOffSubItems, NUMITEMS(dutyCycleOffSubItems))) >= 0) {
+        dutyCycleOffSub->setSelectedIndex(index);
     }
   }
 
@@ -66,14 +103,14 @@ class MenuHandler : public MenuCallback {
     loadControl(&lc) {
     menu = new Menu(menuItems, NUMITEMS(menuItems));
     modeSub = new Menu(modeSubItems, NUMITEMS(modeSubItems), this);
-    targetSub = new Menu(targetSubItems, NUMITEMS(targetSubItems), this);
-    bandSub = new Menu(bandSubItems, NUMITEMS(bandSubItems), this);
+    targetTempSub = new Menu(targetTempSubItems, NUMITEMS(targetTempSubItems), this);
+    tempRangeSub = new Menu(tempRangeSubItems, NUMITEMS(tempRangeSubItems), this);
     dutyCycleSub = new Menu(dutyCycleSubItems, NUMITEMS(dutyCycleSubItems));
     dutyCycleOnSub = new Menu(dutyCycleOnSubItems, NUMITEMS(dutyCycleOnSubItems), this);
     dutyCycleOffSub = new Menu(dutyCycleOffSubItems, NUMITEMS(dutyCycleOffSubItems), this);
     menu->addSubMenu(0, modeSub);
-    menu->addSubMenu(1, targetSub);
-    menu->addSubMenu(2, bandSub);
+    menu->addSubMenu(1, targetTempSub);
+    menu->addSubMenu(2, tempRangeSub);
     menu->addSubMenu(3, dutyCycleSub);
     dutyCycleSub->addSubMenu(0, dutyCycleOnSub);
     dutyCycleSub->addSubMenu(1, dutyCycleOffSub);
@@ -83,8 +120,8 @@ class MenuHandler : public MenuCallback {
   {
     delete menu;
     delete modeSub;
-    delete targetSub;
-    delete bandSub;
+    delete targetTempSub;
+    delete tempRangeSub;
     delete dutyCycleSub;
     delete dutyCycleOnSub;
     delete dutyCycleOffSub;
@@ -93,6 +130,9 @@ class MenuHandler : public MenuCallback {
   void presentMenu(void) {
     initSelectedMode();
     initSelectedTargetTemp();
+    initTempRange();
+    initDutyCycleOn();
+    initDutyCycleOff();
 
     menuDisplay.presentMenu(menu);
   }
@@ -100,10 +140,10 @@ class MenuHandler : public MenuCallback {
   virtual void itemSelected(Menu *menu, const char *selected) {
     if (menu == modeSub) {
       handleModeSelection(selected);
-    } else if (menu == targetSub) {
-      handleTargetSelection(selected);
-    } else if (menu == bandSub) {
-      handleBandSelection(selected);
+    } else if (menu == targetTempSub) {
+      handleTargetTempSelection(selected);
+    } else if (menu == tempRangeSub) {
+      handleTempRangeSelection(selected);
     } else if (menu == dutyCycleOnSub) {
       handleDutyCycleOnSelection(selected);
     } else if (menu == dutyCycleOffSub) {
