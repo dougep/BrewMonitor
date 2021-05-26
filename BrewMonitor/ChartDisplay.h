@@ -1,6 +1,6 @@
 #include <TFT_22_ILI9225.h>
 
-#define X_RANGE 1   // Hours
+#define X_RANGE 12   // Hours
 #define Y_RANGE 4   // *10 Deg
 
 #define X_ZERO 5
@@ -80,7 +80,7 @@ class ChartDisplay {
         beerTemp = tempFromStoreVal(storage[beer][x]);
         coolantTemp = tempFromStoreVal(storage[coolant][x]);
         airTemp = tempFromStoreVal(storage[air][x]);
-        plotPoints(beerTemp, coolantTemp, airTemp);
+        plotPoints(beerTemp, coolantTemp, airTemp, false);
       }
     }
 
@@ -89,7 +89,7 @@ class ChartDisplay {
     barX = currentX;
   }
 
-  void updateTemps(unsigned long timestamp, float beerTemp, float coolantTemp, float airTemp) {
+  void updateTemps(unsigned long timestamp, float beerTemp, float coolantTemp, float airTemp, bool powerOn) {
     unsigned newX = (float)((timestamp-startTime) % chartWidth) / chartWidth * X_PIXELS + X_ZERO;
 
     updateTemp(beer, beerTemp);
@@ -104,7 +104,7 @@ class ChartDisplay {
       barX = newX;
       tft.drawLine(barX+1, Y_TOP, barX+1, Y_ZERO-1, COLOR_AZUR);
 
-      plotPoints(beerTemp, coolantTemp, airTemp);
+      plotPoints(beerTemp, coolantTemp, airTemp, powerOn);
     }
   }
 
@@ -112,8 +112,12 @@ class ChartDisplay {
     return Y_ZERO - (unsigned)(temp / (Y_RANGE*10) * (Y_RANGE*Y_10DEG));
   }
   
-  void plotPoints(float beerTemp, float coolantTemp, float airTemp) {
+  void plotPoints(float beerTemp, float coolantTemp, float airTemp, bool powerOn) {
     if (barX > X_ZERO) {
+      if (powerOn) {
+        tft.drawLine(barX, Y_TOP, barX, Y_ZERO-1, COLOR_DARKRED);
+      }
+      
       tft.drawPixel(barX, tempToY(beerTemp), temps[beer].colour);
       tft.drawPixel(barX, tempToY(coolantTemp), temps[coolant].colour);
       tft.drawPixel(barX, tempToY(airTemp), temps[air].colour);
@@ -188,7 +192,7 @@ class ChartDisplay {
 
     startTime = millis();
 
-    addDataPoint(startTime, 20.0, 20.0, 20.0);
+    addDataPoint(startTime, 20.0, 20.0, 20.0, false);
 
     redraw();
   }
@@ -197,6 +201,7 @@ class ChartDisplay {
     tft.clear();
     
     tft.setFont(Terminal12x16);
+    tft.setBackgroundColor(COLOR_BLACK);
 
     tft.drawText(temps[beer].x, 0, temps[beer].text, temps[beer].colour);
     tft.drawText(temps[coolant].x, 0, temps[coolant].text, temps[coolant].colour);
@@ -208,7 +213,7 @@ class ChartDisplay {
     plotData();
   }
 
-  void addDataPoint(unsigned long timestamp, float beerTemp, float coolantTemp, float airTemp) {
-    updateTemps(timestamp, beerTemp, coolantTemp, airTemp);
+  void addDataPoint(unsigned long timestamp, float beerTemp, float coolantTemp, float airTemp, bool powerOn) {
+    updateTemps(timestamp, beerTemp, coolantTemp, airTemp, powerOn);
   }
 };

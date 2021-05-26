@@ -29,16 +29,16 @@ class LoadController {
     Cooling
   } ControlMode;
 
+  typedef enum {
+    Energised,
+    Off
+  } PowerControl;
+
   private:
   typedef enum {
     Active,
     Idle
   } State;
-
-  typedef enum {
-    Energised,
-    Off
-  } PowerControl;
 
   class Settings {
     private:
@@ -63,7 +63,7 @@ class LoadController {
 
     void load(void) {
       if (EEPROM.read(GUARD_ADDR) == GUARD_VALUE) {
-        PRINT(F("LC Loading\n"));
+        PRINTLN(F("LC Loading"));
         
         int addr = DATA_ADDR;
         
@@ -77,7 +77,7 @@ class LoadController {
         addr += sizeof(powerControlDutyCycleOn);
         eeGet(addr, powerControlDutyCycleOff);
       } else {
-        PRINT(F("LC No guard\n"));
+        PRINTLN(F("LC No guard"));
       }
     }
     
@@ -102,7 +102,8 @@ class LoadController {
 
   State state;
   PowerControl powerControl;
-  int controlPin;
+  int controlPinOn;
+  int controlPinOff;
   unsigned long powerControlStartTime;
   
   public:
@@ -110,8 +111,8 @@ class LoadController {
     : state(Idle) {
   }
 
-  void init(int pin) {
-    initialisePowerControl(pin);
+  void init(int onPin, int offPin) {
+    initialisePowerControl(onPin, offPin);
     setIdle();
     initialiseSettings();
   }
@@ -169,10 +170,42 @@ class LoadController {
     settings.save();
   }
 
+  PowerControl getPowerControlState(void) {
+    return powerControl;
+  }
+  
+  void setPowerControlOn(void) {
+    digitalWrite(controlPinOn, HIGH);
+    delay(100);
+    digitalWrite(controlPinOn, LOW);
+    
+    powerControl = Energised;
+    powerControlStartTime = millis();
+    
+    PRINTLN(F("LC Power on"));
+  }
+  
+  void setPowerControlOff(void) {
+    digitalWrite(controlPinOff, HIGH);
+    delay(100);
+    digitalWrite(controlPinOff, LOW);
+    
+    powerControl = Off;
+    powerControlStartTime = millis();
+    
+    PRINTLN(F("LC Power off"));
+  }
+
   private:
-  void initialisePowerControl(int pin) {
-    controlPin = pin;
-    pinMode(controlPin, OUTPUT);
+  void initialisePowerControl(int onPin, int offPin) {
+    controlPinOn = onPin;
+    controlPinOff = offPin;
+
+    digitalWrite(controlPinOn, LOW);
+    digitalWrite(controlPinOff, LOW);
+    pinMode(controlPinOn, OUTPUT);
+    pinMode(controlPinOff, OUTPUT);
+    
     setPowerControlOff();
   }
 
@@ -186,30 +219,14 @@ class LoadController {
     PRINTVAR(settings.powerControlDutyCycleOff);
   }
 
-  void setPowerControlOn(void) {
-    digitalWrite(controlPin, HIGH);
-    powerControl = Energised;
-    powerControlStartTime = millis();
-    
-    PRINT(F("LC Power on\n"));
-  }
-  
-  void setPowerControlOff(void) {
-    digitalWrite(controlPin, LOW);
-    powerControl = Off;
-    powerControlStartTime = millis();
-    
-    PRINT(F("LC Power off\n"));
-  }
-
   void setIdle() {
-    PRINT(F("LC Idle\n"));
+    PRINTLN(F("LC Idle"));
     
     state = Idle;
   }
 
   void setActive() {
-    PRINT(F("LC Active\n"));
+    PRINTLN(F("LC Active"));
     
     state = Active;
   }
@@ -255,14 +272,6 @@ class LoadController {
           setPowerControlOn();
         }
       }
-
-//      if (millis() - powerControlStartTime >= settings.powerControlCycleTime) {
-//        if (powerControl == Energised) {
-//          setPowerControlOff();
-//        } else {
-//          setPowerControlOn();
-//        }
-//      }
     }
   }
 };

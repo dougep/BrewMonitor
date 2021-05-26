@@ -24,37 +24,28 @@
 //============================================================
 // Variables and constants
 
-#ifdef ARDUINO_ARCH_STM32F1
-  #define LOAD_CONTROL_PIN PB8
-  #define TEMP_SENSORS_PIN PB9
-#else
-  #define LOAD_CONTROL_PIN 10
-  #define TEMP_SENSORS_PIN 9
-#endif
+#define LOAD_CONTROL_PIN_ON PB3
+#define LOAD_CONTROL_PIN_OFF PB4
 
-#ifdef ARDUINO_ARCH_STM32F1
-  #define TFT_LED PB1   // 0 if wired to +5V directly
-  #define TFT_RS  PB5
-  #define TFT_RST PB6
-  #define TFT_CS  PB7
+#define TEMP_SENSORS_PIN PB9
 
-  #define BTN_UP PA0
-  #define BTN_DOWN PA1
-  #define BTN_SELECT PA2
-  #define BTN_BACK PA3
-#else
-  #define TFT_LED 5   // 0 if wired to +5V directly
-  #define TFT_CLK 13  // SCK
-  #define TFT_SDI 11  // MOSI
-  #define TFT_RS  4
-  #define TFT_RST 3
-  #define TFT_CS  2  // SS
-#endif
+#define TFT_LED PB1   // 0 if wired to +5V directly
+#define TFT_RS  PB5
+#define TFT_RST PB6
+#define TFT_CS  PB7
+
+#define BTN_UP PA0
+#define BTN_DOWN PA1
+#define BTN_SELECT PA2
+#define BTN_BACK PA3
 
 #define SCREEN_TIMEOUT 60000UL  // Milliseconds
+#define TEMPS_TIMEOUT 2000UL  // Milliseconds
 #define ORIENTATION 3
 #define TFT_BRIGHTNESS 100 // Initial brightness of TFT backlight (optional)
 
+//============================================================
+// Globals
 TFT_22_ILI9225 tft(TFT_RST, TFT_RS, TFT_CS, TFT_LED, TFT_BRIGHTNESS);
 ButtonController buttons;
 ChartDisplay chartDisplay(tft);
@@ -63,28 +54,7 @@ LoadController loadControl;
 
 bool screenOnFlag = true;
 unsigned long screenTimeoutStart = millis();
-
-//============================================================
-// Setup
-void setup() {
-#ifdef DEBUG
-  Serial.begin(9600);
-  delay(1000);
-#endif
-
-  PRINT(F("Init Start\n"));
-
-  tft.begin();
-  tft.setOrientation(ORIENTATION);
-  chartDisplay.init();
-  sensors.init(TEMP_SENSORS_PIN);
-  loadControl.init(LOAD_CONTROL_PIN);
-  buttons.init(BTN_UP, BTN_DOWN, BTN_SELECT, BTN_BACK);
-
-  resetScreenTimeout();
-  
-  PRINT(F("Init Done\n"));
-}
+unsigned long tempsTimeoutStart = millis();
 
 void handleMenu() {
   MenuHandler handler(tft, buttons, loadControl);
@@ -116,47 +86,70 @@ bool screenTimedOut(void) {
   return millis() - screenTimeoutStart >= SCREEN_TIMEOUT;
 }
 
+void resetTempsTimeout(void) {
+  tempsTimeoutStart = millis();
+}
+
+bool tempsTimedOut(void) {
+  return millis() - tempsTimeoutStart >= TEMPS_TIMEOUT;
+}
+
+void updateTemps(void) {
+  float temps[3];
+
+  sensors.getTemps(temps);
+
+  chartDisplay.addDataPoint(millis(), temps[beer], temps[coolant], temps[air], 
+      loadControl.getPowerControlState() == LoadController::Energised);
+      
+  loadControl.check(temps[beer]);
+}
+
+//============================================================
+// Setup
+void setup() {
+#ifdef DEBUG
+  Serial.begin(9600);
+  delay(1000);
+#endif
+
+  PRINTLN(F("Init Start"));
+
+  tft.begin();
+  tft.setOrientation(ORIENTATION);
+  chartDisplay.init();
+  sensors.init(TEMP_SENSORS_PIN);
+  loadControl.init(LOAD_CONTROL_PIN_ON, LOAD_CONTROL_PIN_OFF);
+  buttons.init(BTN_UP, BTN_DOWN, BTN_SELECT, BTN_BACK);
+
+  resetScreenTimeout();
+  resetTempsTimeout();
+
+  PRINTLN(F("Init Done"));
+}
+
 //============================================================
 // Loop
 void loop() {
-  PRINT("Loop Start\n");
+  if (tempsTimedOut()) {
+    updateTemps();
 
-  do {
-    float temps[3];
-
-    sensors.getTemps(temps);
-    PRINT("Temps:\n");
-    PRINTVAR(temps[beer]);
-    PRINTVAR(temps[coolant]);
-    PRINTVAR(temps[air]);
-    
-    chartDisplay.addDataPoint(millis(), temps[beer], temps[coolant], temps[air]);
-
-    loadControl.check(temps[beer]);
-
-    if (screenTimedOut()) {
-      screenOff();
-    }
-
-    for (int i=0; i<30; i++) {
-      if (!screenIsOn()) {
-        if (buttons.buttonPressed(ButtonAny)) {
-          screenOn();
-          
-          resetScreenTimeout();
-        }
-      } else if (buttons.buttonPressed(ButtonSelect)) {
-        handleMenu();
-
-        chartDisplay.redraw();
-
-        resetScreenTimeout();
-
-        break;
-      }
-
-      delay(50);
-    }
+    resetTempsTimeout();
   }
-  while(true);
+
+  if (screenIsOn() && screenTimedOut()) {
+    screenOff();
+  } else if (!screenIsOn()) {
+    if (buttons.buttonPressed(ButtonAny)) {
+      screenOn();
+      
+      resetScreenTimeout();
+    }
+  } else if (buttons.buttonPressed(ButtonSelect)) {
+    handleMenu();
+
+    chartDisplay.redraw();
+
+    resetScreenTimeout();
+  }
 }
