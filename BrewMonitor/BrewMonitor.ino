@@ -2,12 +2,12 @@
 #include "SPI.h"
 #include <limits.h>
 
-#define DEBUG
+#undef DEBUG
 
 #ifdef DEBUG
   #define PRINT(...) Serial.print(__VA_ARGS__)
   #define PRINTLN(...) { Serial.print(__VA_ARGS__); Serial.print("\n"); }
-  #define PRINTVAR(v) Serial.print("   "#v": " + String(v) + "\n")
+  #define PRINTVAR(v) { Serial.print(__PRETTY_FUNCTION__); Serial.print(":   "#v": " + String(v) + "\n"); }
 #else
   #define PRINT(...)
   #define PRINTLN(...)

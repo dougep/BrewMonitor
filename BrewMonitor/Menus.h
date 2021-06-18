@@ -88,6 +88,7 @@ class Menu {
     activeItem(0),
     selectedItem(-1),
     topIndex(0),
+    rowCount(UINT_MAX),
     subMenus(new Menu*[itemCount]) {
       memset(subMenus, 0, itemCount * sizeof(Menu*));
       memset(callbacks, 0, MAX_CALLBACKS * sizeof(Menu*));
@@ -117,21 +118,21 @@ class Menu {
   }
 
   bool adjustViewWindow(void) {
-      if (activeItem < topIndex) {
-        topIndex = activeItem;
-        draw();
+    if (activeItem < topIndex) {
+      topIndex = activeItem;
+      draw();
 
-        return true;
-      }
-      
-      if (activeItem - topIndex >= rowCount) {
-        topIndex = activeItem - rowCount + 1;
-        draw();
+      return true;
+    }
 
-        return true;
-      }
+    if (activeItem - topIndex >= rowCount) {
+      topIndex = activeItem - rowCount + 1;
+      draw();
 
-      return false;
+      return true;
+    }
+
+    return false;
   }
 
   void upAction(void) {
@@ -197,8 +198,10 @@ class Menu {
   }
 
   void draw(void) {
+    adjustViewWindow();
+
     tft->fillRectangle(drawX, drawY, drawX + rowWidth, drawY + (rowCount - 1) * rowSpace + rowHeight, BACKGROUND_COLOUR);
-    
+
     for (int i=0; i<min(rowCount, itemCount); i++) {
       drawItem(topIndex + i);
     }

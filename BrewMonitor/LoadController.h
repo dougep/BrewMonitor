@@ -264,7 +264,7 @@ class LoadController {
   void updatePowerControl(float beerTemp) {
     if (state == Active) {
       if (powerControl == Energised) {
-        if (millis() - powerControlStartTime >= settings.powerControlDutyCycleOn * 1000) {
+        if ((millis() - powerControlStartTime >= settings.powerControlDutyCycleOn * 1000) && (settings.powerControlDutyCycleOff > 0)) {
           setPowerControlOff();
         }
       } else {
