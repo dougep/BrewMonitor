@@ -40,7 +40,7 @@
 #define BTN_BACK PA3
 
 #define SCREEN_TIMEOUT 60000UL  // Milliseconds
-#define TEMPS_TIMEOUT 2000UL  // Milliseconds
+#define TEMPS_TIMEOUT 4000UL  // Milliseconds
 #define ORIENTATION 3
 #define TFT_BRIGHTNESS 100 // Initial brightness of TFT backlight (optional)
 
@@ -53,6 +53,7 @@ TempSensors sensors;
 LoadController loadControl;
 
 bool screenOnFlag = true;
+bool waitingForTemps = false;
 unsigned long screenTimeoutStart = millis();
 unsigned long tempsTimeoutStart = millis();
 
@@ -90,19 +91,37 @@ void resetTempsTimeout(void) {
   tempsTimeoutStart = millis();
 }
 
+bool tempsReady(void) {
+  return waitingForTemps && sensors.tempsReady();
+}
+
 bool tempsTimedOut(void) {
   return millis() - tempsTimeoutStart >= TEMPS_TIMEOUT;
+}
+
+void requestTemps(void) {
+  PRINTLN("Request temps");
+  
+  sensors.requestTemps();
+
+  waitingForTemps = true;
+
+  resetTempsTimeout();
 }
 
 void updateTemps(void) {
   float temps[3];
 
+  PRINTLN("Update temps");
+  
   sensors.getTemps(temps);
 
   chartDisplay.addDataPoint(millis(), temps[beer], temps[coolant], temps[air], 
       loadControl.getPowerControlState() == LoadController::Energised);
       
   loadControl.check(temps[beer]);
+
+  waitingForTemps = false;
 }
 
 //============================================================
@@ -124,6 +143,7 @@ void setup() {
 
   resetScreenTimeout();
   resetTempsTimeout();
+  waitingForTemps = false;
 
   PRINTLN(F("Init Done"));
 }
@@ -131,10 +151,10 @@ void setup() {
 //============================================================
 // Loop
 void loop() {
-  if (tempsTimedOut()) {
+  if (tempsReady()) {
     updateTemps();
-
-    resetTempsTimeout();
+  } else if (tempsTimedOut()) {
+    requestTemps();
   }
 
   if (screenIsOn() && screenTimedOut()) {
@@ -145,7 +165,7 @@ void loop() {
       
       resetScreenTimeout();
     }
-  } else if (buttons.buttonPressed(ButtonSelect)) {
+  } else if (buttons.buttonPressed(ButtonAny)) {
     handleMenu();
 
     chartDisplay.redraw();

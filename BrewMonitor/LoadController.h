@@ -252,13 +252,17 @@ class LoadController {
       if (goalSatisfied(beerTemp)) {
         setIdle();
         setPowerControlOff();
+        return true;
       }
     } else {
       if (limitBreached(beerTemp)) {
         setActive();
         setPowerControlOn();
+        return true;
       }
     }
+
+    return false;
   }
 
   void updatePowerControl(float beerTemp) {

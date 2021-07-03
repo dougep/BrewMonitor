@@ -19,10 +19,18 @@ class TempSensors {
     rawSensors = new DallasTemperature(ds);
 
     rawSensors->begin();
+    rawSensors->setWaitForConversion(false);
   }
 
-  void getTemps(float *temps) {
+  void requestTemps(void) {
     rawSensors->requestTemperatures();
+  }
+
+  bool tempsReady(void) {
+    return rawSensors->isConversionComplete();
+  }
+  
+  void getTemps(float *temps) {
     temps[beer] = rawSensors->getTempC(SENSOR_ADDR_BEER);
     temps[coolant] = rawSensors->getTempC(SENSOR_ADDR_COOLANT);
     temps[air] = rawSensors->getTempC(SENSOR_ADDR_AIR);
