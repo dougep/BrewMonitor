@@ -117,7 +117,7 @@ void updateTemps(void) {
   sensors.getTemps(temps);
 
   chartDisplay.addDataPoint(millis(), temps[beer], temps[coolant], temps[air], 
-      loadControl.getPowerControlState() == LoadController::Energised);
+      loadControl.getActiveState() == LoadController::Active);
       
   loadControl.check(temps[beer]);
 

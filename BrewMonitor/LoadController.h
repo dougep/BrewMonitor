@@ -34,12 +34,12 @@ class LoadController {
     Off
   } PowerControl;
 
-  private:
   typedef enum {
     Active,
     Idle
   } State;
 
+  private:
   class Settings {
     private:
     static const int GUARD_ADDR = 0;
@@ -196,6 +196,10 @@ class LoadController {
     PRINTLN(F("LC Power off"));
   }
 
+  State getActiveState(void) {
+    return state;
+  }
+  
   private:
   void initialisePowerControl(int onPin, int offPin) {
     controlPinOn = onPin;

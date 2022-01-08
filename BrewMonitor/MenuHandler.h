@@ -2,13 +2,13 @@
 
 #define NUMITEMS(items) (sizeof(items)/sizeof(char*))
 
-static const char *menuItems[] = { "Mode", "Target Temp", "Temp Range", "Duty Cycle", "Power Control" };
+static const char *menuItems[] = { "Mode", "Target Temp", "Temp Range", "On Off", "Power Control" };
 static const char *modeSubItems[] = { "Heating", "Cooling" };
 static const char *targetTempSubItems[] = { "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25" };
 static const char *tempRangeSubItems[] = { "1", "2", "3", "4", "5" };
 static const char *dutyCycleSubItems[] = { "On", "Off" };
-static const char *dutyCycleOnSubItems[] = { "30", "60", "90", "120", "180", "300" };
-static const char *dutyCycleOffSubItems[] = { "0", "30", "60", "90", "120", "180", "300" };
+static const char *dutyCycleOnSubItems[] = { "15", "30", "60", "90", "120", "180", "240", "300" };
+static const char *dutyCycleOffSubItems[] = { "0", "30", "60", "90", "120", "180", "240", "300" };
 static const char *powerControlSubItems[] = { "On", "Off" };
 
 class MenuHandler : public MenuCallback {

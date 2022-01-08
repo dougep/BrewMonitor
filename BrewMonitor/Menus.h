@@ -18,6 +18,8 @@
 
 #define MAX_CALLBACKS 5
 
+#define SELECTED_VALUE_MAX_LEN 16
+
 class MenuCallback {
   public:
   virtual void itemSelected(class Menu *menu, const char *selected) { };
@@ -26,12 +28,14 @@ class MenuCallback {
 
 class Menu {
   private:
+  
   const char **items;
   unsigned itemCount;
   unsigned activeItem;
   int selectedItem;
   MenuCallback *callbacks[MAX_CALLBACKS];
   Menu **subMenus;
+  char selectedValue[SELECTED_VALUE_MAX_LEN + 1];
 
   TFT_22_ILI9225 *tft;
   unsigned rowCount;
@@ -81,6 +85,35 @@ class Menu {
     }
   }
   
+  void updateSelectedValueText(void) {
+    int length = 0;
+
+    selectedValue[0] = 0;
+    
+    if (selectedItem >= 0) {
+      strncat(selectedValue, items[selectedItem], SELECTED_VALUE_MAX_LEN);
+      length += strlen(selectedValue);
+    }
+
+    for (int i=0; i<itemCount; i++) {
+      if (subMenus[i]) {
+        const char *subMenuValue = subMenus[i]->getSelectedValue();
+
+        if (subMenuValue) {
+          if (length && (length < SELECTED_VALUE_MAX_LEN)) {
+            strcat(selectedValue, "/");
+            length++;
+          }
+
+          if (length < SELECTED_VALUE_MAX_LEN) {
+            strncat(selectedValue, subMenuValue, SELECTED_VALUE_MAX_LEN - length);
+            length += strlen(subMenuValue);
+          }
+        }
+      }
+    }
+  }
+
   public:
   Menu(const char** items, unsigned itemCount, MenuCallback *callback=0)
   : items(items),
@@ -91,7 +124,8 @@ class Menu {
     rowCount(UINT_MAX),
     subMenus(new Menu*[itemCount]) {
       memset(subMenus, 0, itemCount * sizeof(Menu*));
-      memset(callbacks, 0, MAX_CALLBACKS * sizeof(Menu*));
+      memset(callbacks, 0, MAX_CALLBACKS * sizeof(MenuCallback*));
+      selectedValue[0] = 0;
 
       addCallback(callback);
   }
@@ -168,7 +202,9 @@ class Menu {
   }
 
   const char *getSelectedValue(void) {
-    return selectedItem >= 0 ? items[selectedItem] : 0;
+    updateSelectedValueText();
+    
+    return strlen(selectedValue) ? selectedValue : 0;
   }
 
   int getSelectedIndex(void) {
@@ -278,7 +314,7 @@ class MenuDisplay : public MenuCallback {
       if (buttons.buttonPressed(ButtonSelect)) {
         menu->selectAction();
 
-        if (menu->getSelectedValue()) {
+        if (menu->getSelectedIndex() >= 0) {
           exitMenu = true;
         }
 

@@ -102,7 +102,7 @@ class ChartDisplay {
       }
 
       barX = newX;
-      tft.drawLine(barX+1, Y_TOP, barX+1, Y_ZERO-1, COLOR_AZUR);
+      tft.drawLine(barX+1, Y_TOP, barX+1, Y_ZERO-1, powerOn ? COLOR_RED : COLOR_AZUR);
 
       plotPoints(beerTemp, coolantTemp, airTemp, powerOn);
     }
