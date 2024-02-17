@@ -176,8 +176,6 @@ class LoadController {
   
   void setPowerControlOn(void) {
     digitalWrite(controlPinOn, HIGH);
-    delay(100);
-    digitalWrite(controlPinOn, LOW);
     
     powerControl = Energised;
     powerControlStartTime = millis();
@@ -186,9 +184,7 @@ class LoadController {
   }
   
   void setPowerControlOff(void) {
-    digitalWrite(controlPinOff, HIGH);
-    delay(100);
-    digitalWrite(controlPinOff, LOW);
+    digitalWrite(controlPinOn, LOW);
     
     powerControl = Off;
     powerControlStartTime = millis();
