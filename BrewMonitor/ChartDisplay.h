@@ -18,14 +18,16 @@ class ChartDisplay {
   private:
   class TextDetails {
     public:
-    TextDetails(String text, unsigned x, unsigned colour)
+    TextDetails(String text, unsigned x, unsigned endx, unsigned colour)
     : text(text),
       x(x),
+      end_x(endx),
       colour(colour)
     { }
   
     String    text;
     unsigned  x;
+    unsigned  end_x;
     unsigned  colour;
   };
   
@@ -39,9 +41,9 @@ class ChartDisplay {
   float minTemp[3] = { 99.0, 99.0, 99.0};
   float maxTemp[3] = {};
   TextDetails temps[3] = {
-    TextDetails("Beer", 0, COLOR_BLUE),
-    TextDetails("Coolant", 68, COLOR_GREEN),
-    TextDetails("Air", 160, COLOR_RED)
+    TextDetails("Beer", 0, 67, COLOR_BLUE),
+    TextDetails("Coolant", 68, 159, COLOR_GREEN),
+    TextDetails("Air", 160, 239, COLOR_RED)
   };
 
   unsigned width, height;
@@ -165,12 +167,21 @@ class ChartDisplay {
   }
 
   void updateTemp(TempType type, float temp) {
+    String tempDisplay;
+
     updateMinMax(type, temp);
 
     tft.setBackgroundColor(COLOR_BLACK);
     
+    if (temp < 0) {
+      tempDisplay = "Err";
+    } else {
+      tempDisplay = String(temp, 1);
+    }
+
     tft.setFont(Terminal11x16);
-    tft.drawText(temps[type].x, 18, String(temp, 1) + "  ", temps[type].colour);
+    tft.drawText(temps[type].x, 18, tempDisplay, temps[type].colour);
+    tft.fillRectangle(temps[type].x + tft.getTextWidth(tempDisplay), 18, temps[type].end_x, 34, COLOR_BLACK);
 
     tft.setFont(Terminal6x8);
     tft.drawText(temps[type].x, 35, String(minTemp[type], 1) + "/" + String(maxTemp[type], 1) + "  ", temps[type].colour);
